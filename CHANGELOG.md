@@ -10,6 +10,8 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-14
+
 ### Added
 
 - One device per watched station (suggested in Discovery within a radius of
@@ -32,3 +34,6 @@ the notes of the version's GitHub Release.
   (Discovery, buttons, scene action) 2 seconds apart; radius searches and
   station details cached; no more requests after a refused key until the
   configuration is saved again.
+
+[Unreleased]: https://github.com/LM1LC3N7/gladys-tankerkoenig/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/LM1LC3N7/gladys-tankerkoenig/releases/tag/v0.1.1

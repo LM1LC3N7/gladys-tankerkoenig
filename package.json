@@ -1,6 +1,6 @@
 {
   "name": "gladys-tankerkoenig",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Tankerkönig (fuel prices in Germany) for Gladys Assistant: prices per station and fuel type, cheapest station nearby, price threshold scene triggers and a dashboard widget. Unofficial, not affiliated with Tankerkönig.",
   "type": "module",
