@@ -1,0 +1,61 @@
+{
+  "ok": true,
+  "license": "CC BY 4.0 -  https://creativecommons.tankerkoenig.de",
+  "data": "MTS-K",
+  "prices": {
+    "594eafdd-3537-45ae-8bf0-d667aaa25454": {
+      "status": "open",
+      "e5": 1.234,
+      "e10": 1.234,
+      "diesel": 1.234
+    },
+    "579d25fd-acb9-445a-9494-f7fe0fa7ce4a": {
+      "status": "closed"
+    },
+    "1723edea-8e01-4de3-8c5e-ca227a49e2c3": {
+      "status": "open",
+      "e5": 1.234,
+      "e10": 1.234,
+      "diesel": 1.234
+    },
+    "38e0e779-b0f1-46ae-a35b-09f8e37024a1": {
+      "status": "open",
+      "e5": 1.234,
+      "e10": 1.234,
+      "diesel": 1.234
+    },
+    "448e4ee6-3404-4868-b7e6-ea59a5c78eb9": {
+      "status": "open",
+      "e5": 1.234,
+      "e10": 1.234,
+      "diesel": 1.234
+    },
+    "1c4f126b-1f3c-4b38-9692-05c400ea8e61": {
+      "status": "open",
+      "e5": 1.234,
+      "e10": 1.234,
+      "diesel": 1.234
+    },
+    "94e70fc4-b22f-4e5a-877f-bc1082cdae81": {
+      "status": "open",
+      "e5": 1.234,
+      "e10": 1.234,
+      "diesel": 1.234
+    },
+    "278130b1-e062-4a0f-80cc-19e486b4c024": {
+      "status": "open",
+      "e5": 1.234,
+      "e10": 1.234,
+      "diesel": 1.234
+    },
+    "474e5046-deaf-4f9b-9a32-9797b778f047": {
+      "status": "closed"
+    },
+    "51d4b6a9-a095-1aa0-e100-80009459e03a": {
+      "status": "open",
+      "e5": 1.234,
+      "e10": 1.234,
+      "diesel": 1.234
+    }
+  }
+}

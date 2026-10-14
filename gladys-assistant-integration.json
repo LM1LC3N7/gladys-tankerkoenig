@@ -1,0 +1,902 @@
+{
+  "manifest_version": 1,
+  "type": "device",
+  "name": "Tankerkönig",
+  "description": {
+    "en": "Unofficial connector: German fuel prices per station, cheapest nearby and price alerts.",
+    "fr": "Connecteur non officiel : prix des carburants en Allemagne, station la moins chère, alertes."
+  },
+  "version": "0.1.0",
+  "docker_image": "ghcr.io/lm1lc3n7/gladys-tankerkoenig:0.1.0",
+  "gladys_version": ">=5.1.0",
+  "cover_image": "https://raw.githubusercontent.com/LM1LC3N7/gladys-tankerkoenig/main/cover.png",
+  "categories": ["services"],
+  "transports": ["cloud"],
+  "location": true,
+  "config_schema": [
+    {
+      "key": "intro",
+      "type": "section",
+      "label": {
+        "en": "Fuel prices in Germany",
+        "fr": "Les prix des carburants en Allemagne"
+      },
+      "description": {
+        "en": "Unofficial connector, not affiliated with Tankerkönig. It reads the Tankerkönig open data API (the prices every German station reports to the MTS-K, licensed CC BY 4.0): one device per watched station with its Super E5, Super E10 and Diesel prices and whether it is open, a \"Cheapest nearby\" device, scene triggers when a price goes below a threshold, drops, or the cheapest station changes, a scene action and a widget. Request a free personal API key (link below) and paste it here: the stations around your house are then suggested in Discovery.",
+        "fr": "Connecteur non officiel, sans lien avec Tankerkönig. Il lit l'API ouverte de Tankerkönig (les prix que chaque station allemande déclare à la MTS-K, sous licence CC BY 4.0) : un appareil par station suivie avec ses prix Super E5, Super E10 et Diesel et son ouverture, un appareil « Le moins cher à proximité », des déclencheurs quand un prix passe sous un seuil, baisse, ou que la station la moins chère change, une action de scène et un widget. Demandez une clé d'API personnelle gratuite (lien ci-dessous) et collez-la ici : les stations autour de votre maison sont alors proposées dans Découverte."
+      },
+      "links": [
+        {
+          "url": "https://onboarding.tankerkoenig.de/",
+          "label": {
+            "en": "Request a free API key",
+            "fr": "Demander une clé d'API gratuite"
+          }
+        },
+        {
+          "url": "https://creativecommons.tankerkoenig.de/",
+          "label": {
+            "en": "Tankerkönig API and terms of use (German)",
+            "fr": "API et conditions d'utilisation de Tankerkönig (allemand)"
+          }
+        },
+        {
+          "url": "https://github.com/LM1LC3N7/gladys-tankerkoenig/blob/main/docs/fr.md",
+          "label": {
+            "en": "Guide (French)",
+            "fr": "Guide (français)"
+          }
+        },
+        {
+          "url": "https://github.com/LM1LC3N7/gladys-tankerkoenig/blob/main/docs/en.md",
+          "label": {
+            "en": "Guide (English)",
+            "fr": "Guide (anglais)"
+          }
+        }
+      ]
+    },
+    {
+      "key": "api_key",
+      "type": "secret",
+      "required": true,
+      "label": {
+        "en": "Tankerkönig API key",
+        "fr": "Clé d'API Tankerkönig"
+      },
+      "description": {
+        "en": "Stored encrypted by Gladys and only sent to creativecommons.tankerkoenig.de.",
+        "fr": "Stockée chiffrée par Gladys et envoyée uniquement à creativecommons.tankerkoenig.de."
+      },
+      "placeholder": {
+        "en": "00000000-0000-0000-0000-000000000000",
+        "fr": "00000000-0000-0000-0000-000000000000"
+      }
+    },
+    {
+      "key": "fuels",
+      "type": "multi_select",
+      "required": false,
+      "default": ["e5", "e10", "diesel"],
+      "label": {
+        "en": "Fuels to track",
+        "fr": "Carburants à suivre"
+      },
+      "description": {
+        "en": "One price feature per fuel on each station (when the station sells it). None checked: all three.",
+        "fr": "Une fonctionnalité de prix par carburant sur chaque station (si elle le vend). Aucun coché : les trois."
+      },
+      "options": [
+        {
+          "value": "e5",
+          "label": {
+            "en": "Super E5",
+            "fr": "Super E5"
+          }
+        },
+        {
+          "value": "e10",
+          "label": {
+            "en": "Super E10",
+            "fr": "Super E10"
+          }
+        },
+        {
+          "value": "diesel",
+          "label": {
+            "en": "Diesel",
+            "fr": "Gazole (diesel)"
+          }
+        }
+      ]
+    },
+    {
+      "key": "radius",
+      "type": "number",
+      "required": false,
+      "default": 5,
+      "min": 1,
+      "max": 25,
+      "label": {
+        "en": "Radius around the house (km)",
+        "fr": "Rayon autour de la maison (km)"
+      },
+      "description": {
+        "en": "The stations within this distance are suggested in Discovery (25 nearest at most), and the \"Cheapest station nearby\" action searches there by default. Tankerkönig allows 25 km at most.",
+        "fr": "Les stations à cette distance sont proposées dans Découverte (les 25 plus proches au plus), et l'action « Station la moins chère à proximité » cherche là par défaut. Tankerkönig autorise 25 km au plus."
+      }
+    },
+    {
+      "key": "stations",
+      "type": "string",
+      "required": false,
+      "label": {
+        "en": "Other stations (ids)",
+        "fr": "Autres stations (identifiants)"
+      },
+      "description": {
+        "en": "Tankerkönig station ids, separated by commas, with an optional custom name after : — the \"Search stations\" button gives the ids.",
+        "fr": "Identifiants de stations Tankerkönig, séparés par des virgules, avec un nom personnalisé facultatif après : — le bouton « Chercher des stations » donne les identifiants."
+      },
+      "placeholder": {
+        "en": "278130b1-e062-4a0f-80cc-19e486b4c024:Aral near work",
+        "fr": "278130b1-e062-4a0f-80cc-19e486b4c024:Aral du bureau"
+      }
+    },
+    {
+      "key": "poll_interval",
+      "type": "number",
+      "required": false,
+      "default": 10,
+      "min": 5,
+      "max": 60,
+      "label": {
+        "en": "Refresh interval (min)",
+        "fr": "Intervalle de rafraîchissement (min)"
+      },
+      "description": {
+        "en": "How often the prices of the watched stations are read (10 per request). Tankerkönig asks home automation for 5 minutes at least.",
+        "fr": "Fréquence de lecture des prix des stations suivies (10 par requête). Tankerkönig demande au moins 5 minutes aux systèmes domotiques."
+      }
+    }
+  ],
+  "actions": [
+    {
+      "key": "test_connection",
+      "timeout_seconds": 30,
+      "label": {
+        "en": "Test the API key",
+        "fr": "Tester la clé d'API"
+      },
+      "description": {
+        "en": "Sends one price request to Tankerkönig and checks the house location and the typed ids.",
+        "fr": "Envoie une requête de prix à Tankerkönig et vérifie la position de la maison et les identifiants saisis."
+      }
+    },
+    {
+      "key": "search_stations",
+      "timeout_seconds": 30,
+      "label": {
+        "en": "Search stations",
+        "fr": "Chercher des stations"
+      },
+      "description": {
+        "en": "Lists the stations around the house whose name, brand, street, town or postcode contains the text, with their id.",
+        "fr": "Liste les stations autour de la maison dont le nom, la marque, la rue, la ville ou le code postal contient le texte, avec leur identifiant."
+      },
+      "fields": [
+        {
+          "key": "query",
+          "type": "string",
+          "required": false,
+          "label": {
+            "en": "Text (empty: the nearest)",
+            "fr": "Texte (vide : les plus proches)"
+          },
+          "placeholder": {
+            "en": "Aral",
+            "fr": "Aral"
+          }
+        },
+        {
+          "key": "radius",
+          "type": "number",
+          "required": false,
+          "default": 10,
+          "min": 1,
+          "max": 25,
+          "label": {
+            "en": "Radius (km)",
+            "fr": "Rayon (km)"
+          }
+        }
+      ]
+    }
+  ],
+  "widgets": [
+    {
+      "key": "fuel_prices",
+      "label": {
+        "en": "Fuel prices",
+        "fr": "Prix des carburants"
+      },
+      "description": {
+        "en": "The cheapest price per fuel and the watched stations with their prices, the cheapest in green.",
+        "fr": "Le prix le plus bas par carburant et les stations suivies avec leurs prix, la moins chère en vert."
+      },
+      "icon": "droplet",
+      "settings": [
+        {
+          "key": "fuel",
+          "type": "select",
+          "required": false,
+          "label": {
+            "en": "Fuel (empty: every tracked fuel)",
+            "fr": "Carburant (vide : tous ceux suivis)"
+          },
+          "options": [
+            {
+              "value": "e5",
+              "label": {
+                "en": "Super E5",
+                "fr": "Super E5"
+              }
+            },
+            {
+              "value": "e10",
+              "label": {
+                "en": "Super E10",
+                "fr": "Super E10"
+              }
+            },
+            {
+              "value": "diesel",
+              "label": {
+                "en": "Diesel",
+                "fr": "Gazole (diesel)"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "scene_triggers": [
+    {
+      "key": "price_below",
+      "label": {
+        "en": "Fuel price below a threshold",
+        "fr": "Prix du carburant sous un seuil"
+      },
+      "description": {
+        "en": "The price of a fuel just went below the threshold at a watched station. Pick \"Cheapest nearby\" as the station to react once for the lowest price, whichever station holds it.",
+        "fr": "Le prix d'un carburant vient de passer sous le seuil dans une station suivie. Choisissez « Cheapest nearby » comme station pour réagir une fois au prix le plus bas, quelle que soit la station."
+      },
+      "fields": [
+        {
+          "key": "fuel",
+          "type": "select",
+          "required": true,
+          "label": {
+            "en": "Fuel",
+            "fr": "Carburant"
+          },
+          "options": [
+            {
+              "value": "e5",
+              "label": {
+                "en": "Super E5",
+                "fr": "Super E5"
+              }
+            },
+            {
+              "value": "e10",
+              "label": {
+                "en": "Super E10",
+                "fr": "Super E10"
+              }
+            },
+            {
+              "value": "diesel",
+              "label": {
+                "en": "Diesel",
+                "fr": "Gazole (diesel)"
+              }
+            }
+          ]
+        },
+        {
+          "key": "threshold",
+          "type": "select",
+          "required": true,
+          "label": {
+            "en": "Below (€/L)",
+            "fr": "Sous (€/L)"
+          },
+          "options": [
+            {
+              "value": "1.40",
+              "label": {
+                "en": "1.40 €/L",
+                "fr": "1,40 €/L"
+              }
+            },
+            {
+              "value": "1.45",
+              "label": {
+                "en": "1.45 €/L",
+                "fr": "1,45 €/L"
+              }
+            },
+            {
+              "value": "1.50",
+              "label": {
+                "en": "1.50 €/L",
+                "fr": "1,50 €/L"
+              }
+            },
+            {
+              "value": "1.55",
+              "label": {
+                "en": "1.55 €/L",
+                "fr": "1,55 €/L"
+              }
+            },
+            {
+              "value": "1.60",
+              "label": {
+                "en": "1.60 €/L",
+                "fr": "1,60 €/L"
+              }
+            },
+            {
+              "value": "1.65",
+              "label": {
+                "en": "1.65 €/L",
+                "fr": "1,65 €/L"
+              }
+            },
+            {
+              "value": "1.70",
+              "label": {
+                "en": "1.70 €/L",
+                "fr": "1,70 €/L"
+              }
+            },
+            {
+              "value": "1.75",
+              "label": {
+                "en": "1.75 €/L",
+                "fr": "1,75 €/L"
+              }
+            },
+            {
+              "value": "1.80",
+              "label": {
+                "en": "1.80 €/L",
+                "fr": "1,80 €/L"
+              }
+            },
+            {
+              "value": "1.85",
+              "label": {
+                "en": "1.85 €/L",
+                "fr": "1,85 €/L"
+              }
+            },
+            {
+              "value": "1.90",
+              "label": {
+                "en": "1.90 €/L",
+                "fr": "1,90 €/L"
+              }
+            },
+            {
+              "value": "1.95",
+              "label": {
+                "en": "1.95 €/L",
+                "fr": "1,95 €/L"
+              }
+            },
+            {
+              "value": "2.00",
+              "label": {
+                "en": "2.00 €/L",
+                "fr": "2,00 €/L"
+              }
+            },
+            {
+              "value": "2.05",
+              "label": {
+                "en": "2.05 €/L",
+                "fr": "2,05 €/L"
+              }
+            },
+            {
+              "value": "2.10",
+              "label": {
+                "en": "2.10 €/L",
+                "fr": "2,10 €/L"
+              }
+            },
+            {
+              "value": "2.15",
+              "label": {
+                "en": "2.15 €/L",
+                "fr": "2,15 €/L"
+              }
+            },
+            {
+              "value": "2.20",
+              "label": {
+                "en": "2.20 €/L",
+                "fr": "2,20 €/L"
+              }
+            }
+          ]
+        },
+        {
+          "key": "station",
+          "type": "select",
+          "source": "devices",
+          "required": false,
+          "label": {
+            "en": "Station (empty: every station)",
+            "fr": "Station (vide : toutes)"
+          }
+        }
+      ],
+      "variables": [
+        {
+          "key": "station_name",
+          "type": "string",
+          "label": {
+            "en": "Station",
+            "fr": "Station"
+          }
+        },
+        {
+          "key": "fuel",
+          "type": "string",
+          "label": {
+            "en": "Fuel (e5, e10, diesel)",
+            "fr": "Carburant (e5, e10, diesel)"
+          }
+        },
+        {
+          "key": "price",
+          "type": "number",
+          "label": {
+            "en": "Price (€/L)",
+            "fr": "Prix (€/L)"
+          }
+        },
+        {
+          "key": "previous_price",
+          "type": "number",
+          "label": {
+            "en": "Previous price (€/L)",
+            "fr": "Prix précédent (€/L)"
+          }
+        }
+      ]
+    },
+    {
+      "key": "price_dropped",
+      "label": {
+        "en": "Fuel price dropped",
+        "fr": "Baisse du prix du carburant"
+      },
+      "description": {
+        "en": "The price of a fuel at a watched station dropped by at least the chosen cents between two readings.",
+        "fr": "Le prix d'un carburant dans une station suivie a baissé d'au moins les centimes choisis entre deux lectures."
+      },
+      "fields": [
+        {
+          "key": "min_drop",
+          "type": "select",
+          "required": true,
+          "label": {
+            "en": "Drop of at least",
+            "fr": "Baisse d'au moins"
+          },
+          "options": [
+            {
+              "value": "2",
+              "label": {
+                "en": "2 cents",
+                "fr": "2 centimes"
+              }
+            },
+            {
+              "value": "3",
+              "label": {
+                "en": "3 cents",
+                "fr": "3 centimes"
+              }
+            },
+            {
+              "value": "5",
+              "label": {
+                "en": "5 cents",
+                "fr": "5 centimes"
+              }
+            },
+            {
+              "value": "10",
+              "label": {
+                "en": "10 cents",
+                "fr": "10 centimes"
+              }
+            }
+          ]
+        },
+        {
+          "key": "fuel",
+          "type": "select",
+          "required": false,
+          "label": {
+            "en": "Fuel (empty: any)",
+            "fr": "Carburant (vide : tous)"
+          },
+          "options": [
+            {
+              "value": "e5",
+              "label": {
+                "en": "Super E5",
+                "fr": "Super E5"
+              }
+            },
+            {
+              "value": "e10",
+              "label": {
+                "en": "Super E10",
+                "fr": "Super E10"
+              }
+            },
+            {
+              "value": "diesel",
+              "label": {
+                "en": "Diesel",
+                "fr": "Gazole (diesel)"
+              }
+            }
+          ]
+        },
+        {
+          "key": "station",
+          "type": "select",
+          "source": "devices",
+          "required": false,
+          "label": {
+            "en": "Station (empty: every station)",
+            "fr": "Station (vide : toutes)"
+          }
+        }
+      ],
+      "variables": [
+        {
+          "key": "station_name",
+          "type": "string",
+          "label": {
+            "en": "Station",
+            "fr": "Station"
+          }
+        },
+        {
+          "key": "fuel",
+          "type": "string",
+          "label": {
+            "en": "Fuel (e5, e10, diesel)",
+            "fr": "Carburant (e5, e10, diesel)"
+          }
+        },
+        {
+          "key": "price",
+          "type": "number",
+          "label": {
+            "en": "Price (€/L)",
+            "fr": "Prix (€/L)"
+          }
+        },
+        {
+          "key": "previous_price",
+          "type": "number",
+          "label": {
+            "en": "Previous price (€/L)",
+            "fr": "Prix précédent (€/L)"
+          }
+        },
+        {
+          "key": "drop",
+          "type": "number",
+          "label": {
+            "en": "Drop (cents)",
+            "fr": "Baisse (centimes)"
+          }
+        }
+      ]
+    },
+    {
+      "key": "cheapest_changed",
+      "label": {
+        "en": "Cheapest station changed",
+        "fr": "Station la moins chère changée"
+      },
+      "description": {
+        "en": "Another watched station now has the lowest open price for a fuel (a station added or removed does not count).",
+        "fr": "Une autre station suivie a désormais le prix ouvert le plus bas pour un carburant (l'ajout ou le retrait d'une station ne compte pas)."
+      },
+      "fields": [
+        {
+          "key": "fuel",
+          "type": "select",
+          "required": false,
+          "label": {
+            "en": "Fuel (empty: any)",
+            "fr": "Carburant (vide : tous)"
+          },
+          "options": [
+            {
+              "value": "e5",
+              "label": {
+                "en": "Super E5",
+                "fr": "Super E5"
+              }
+            },
+            {
+              "value": "e10",
+              "label": {
+                "en": "Super E10",
+                "fr": "Super E10"
+              }
+            },
+            {
+              "value": "diesel",
+              "label": {
+                "en": "Diesel",
+                "fr": "Gazole (diesel)"
+              }
+            }
+          ]
+        },
+        {
+          "key": "station",
+          "type": "select",
+          "source": "devices",
+          "required": false,
+          "label": {
+            "en": "New cheapest station (empty: any)",
+            "fr": "Nouvelle station la moins chère (vide : toutes)"
+          }
+        }
+      ],
+      "variables": [
+        {
+          "key": "station_name",
+          "type": "string",
+          "label": {
+            "en": "Station",
+            "fr": "Station"
+          }
+        },
+        {
+          "key": "fuel",
+          "type": "string",
+          "label": {
+            "en": "Fuel (e5, e10, diesel)",
+            "fr": "Carburant (e5, e10, diesel)"
+          }
+        },
+        {
+          "key": "price",
+          "type": "number",
+          "label": {
+            "en": "Price (€/L)",
+            "fr": "Prix (€/L)"
+          }
+        },
+        {
+          "key": "previous_station_name",
+          "type": "string",
+          "label": {
+            "en": "Previous cheapest station",
+            "fr": "Station la moins chère précédente"
+          }
+        },
+        {
+          "key": "previous_price",
+          "type": "number",
+          "label": {
+            "en": "Previous lowest price (€/L)",
+            "fr": "Prix le plus bas précédent (€/L)"
+          }
+        }
+      ]
+    },
+    {
+      "key": "station_status_changed",
+      "label": {
+        "en": "Station opened or closed",
+        "fr": "Station ouverte ou fermée"
+      },
+      "description": {
+        "en": "A watched station just opened or closed, as reported to the MTS-K.",
+        "fr": "Une station suivie vient d'ouvrir ou de fermer, selon sa déclaration à la MTS-K."
+      },
+      "fields": [
+        {
+          "key": "station",
+          "type": "select",
+          "source": "devices",
+          "required": false,
+          "label": {
+            "en": "Station (empty: every station)",
+            "fr": "Station (vide : toutes)"
+          }
+        },
+        {
+          "key": "status",
+          "type": "select",
+          "required": false,
+          "label": {
+            "en": "Now (empty: both)",
+            "fr": "Désormais (vide : les deux)"
+          },
+          "options": [
+            {
+              "value": "open",
+              "label": {
+                "en": "Open",
+                "fr": "Ouverte"
+              }
+            },
+            {
+              "value": "closed",
+              "label": {
+                "en": "Closed",
+                "fr": "Fermée"
+              }
+            }
+          ]
+        }
+      ],
+      "variables": [
+        {
+          "key": "station_name",
+          "type": "string",
+          "label": {
+            "en": "Station",
+            "fr": "Station"
+          }
+        },
+        {
+          "key": "status",
+          "type": "string",
+          "label": {
+            "en": "Status (open, closed)",
+            "fr": "État (open, closed)"
+          }
+        }
+      ]
+    }
+  ],
+  "scene_actions": [
+    {
+      "key": "cheapest_station",
+      "label": {
+        "en": "Cheapest station nearby",
+        "fr": "Station la moins chère à proximité"
+      },
+      "description": {
+        "en": "Searches the open stations around the house and gives the cheapest for a fuel, for a message or a condition that follows.",
+        "fr": "Cherche les stations ouvertes autour de la maison et donne la moins chère pour un carburant, pour un message ou une condition qui suit."
+      },
+      "timeout_seconds": 20,
+      "fields": [
+        {
+          "key": "fuel",
+          "type": "select",
+          "required": true,
+          "label": {
+            "en": "Fuel",
+            "fr": "Carburant"
+          },
+          "options": [
+            {
+              "value": "e5",
+              "label": {
+                "en": "Super E5",
+                "fr": "Super E5"
+              }
+            },
+            {
+              "value": "e10",
+              "label": {
+                "en": "Super E10",
+                "fr": "Super E10"
+              }
+            },
+            {
+              "value": "diesel",
+              "label": {
+                "en": "Diesel",
+                "fr": "Gazole (diesel)"
+              }
+            }
+          ],
+          "default": "e5"
+        },
+        {
+          "key": "radius",
+          "type": "number",
+          "required": false,
+          "min": 1,
+          "max": 25,
+          "label": {
+            "en": "Radius (km, empty: the configured one)",
+            "fr": "Rayon (km, vide : celui de la configuration)"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "key": "found",
+          "type": "boolean",
+          "label": {
+            "en": "An open station was found",
+            "fr": "Une station ouverte a été trouvée"
+          }
+        },
+        {
+          "key": "name",
+          "type": "string",
+          "label": {
+            "en": "Station",
+            "fr": "Station"
+          }
+        },
+        {
+          "key": "brand",
+          "type": "string",
+          "label": {
+            "en": "Brand",
+            "fr": "Marque"
+          }
+        },
+        {
+          "key": "address",
+          "type": "string",
+          "label": {
+            "en": "Address",
+            "fr": "Adresse"
+          }
+        },
+        {
+          "key": "price",
+          "type": "number",
+          "label": {
+            "en": "Price (€/L)",
+            "fr": "Prix (€/L)"
+          }
+        },
+        {
+          "key": "distance",
+          "type": "number",
+          "label": {
+            "en": "Distance from the house (km)",
+            "fr": "Distance de la maison (km)"
+          }
+        },
+        {
+          "key": "station_id",
+          "type": "string",
+          "label": {
+            "en": "Tankerkönig station id",
+            "fr": "Identifiant Tankerkönig de la station"
+          }
+        }
+      ]
+    }
+  ]
+}
