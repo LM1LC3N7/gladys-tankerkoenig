@@ -109,6 +109,13 @@ test('the keys of the manifest are the keys of the code', () => {
     options(field(SCENE_TRIGGERS.STATION_STATUS, 'status')),
     Object.values(STATION_STATUSES),
   );
+  // Required: a scene picks one station or "Cheapest nearby", never "every
+  // station" (an empty filter would match the station and the cheapest events).
+  for (const key of [SCENE_TRIGGERS.PRICE_BELOW, SCENE_TRIGGERS.PRICE_DROPPED]) {
+    const station = field(key, 'station');
+    assert.equal(station.source, 'devices', key);
+    assert.equal(station.required, true, key);
+  }
   for (const trigger of Object.values(triggers)) {
     const fuel = trigger.fields.find((f) => f.key === 'fuel');
     if (fuel) {

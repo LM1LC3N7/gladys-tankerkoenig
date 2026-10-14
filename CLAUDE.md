@@ -58,19 +58,34 @@ test/helpers/         a fake Tankerkönig (fetch), fake timers
   `<fuel>_price`, `<fuel>_station`) and the external id shapes
   (`station:<uuid>`, `cheapest`) are stored in user scenes and dashboards.
   Never rename them.
-- **Be polite with Tankerkönig** (its terms of use for home automation):
+- **Be polite with Tankerkönig.** Its API page says, verbatim, "die
+  Abfragefrequenz auf einen requet/Minute beschränkt" (sic: one request per
+  minute) and "Regelmäßige, nicht explizit vom User initiierte Requests sind
+  zu vermeiden" ("Requests on Demand - auf Useraktion"). Hence two kinds of
+  requests, paced by `TankerkoenigClient.slot` (`src/tankerkoenig.js`):
+  - **background** (nobody asked right now: the refresh loop and all its
+    batches, the reading and the Discovery list at startup or reconnection,
+    the reading of newly created stations): at least `BACKGROUND_SPACING`
+    (60 s) after the previous request of ANY kind;
+  - **user** (a Discovery scan, the Test and Search buttons, the scene action,
+    which is the user's scene): `REQUEST_SPACING` (2 s) after the previous
+    request, and never queued behind a background request waiting for its
+    minute;
   - prices through `prices.php` only, 10 ids per call (`MAX_IDS_PER_CALL`),
-    never a station twice within 5 minutes (`MIN_PRICE_INTERVAL`, checked per
-    station, across restarts and reconnections);
-  - refresh every 10 minutes by default, 5 at least, plus 1 to 59 random
-    seconds so the calls never land on round times;
+    never a station twice within 5 minutes (`MIN_PRICE_INTERVAL`, per station,
+    stamped with the time its request left, kept across restarts and
+    reconnections); refresh every 10 minutes by default, 5 at least, plus 1
+    to 59 random seconds so the calls never land on round times;
   - `list.php` (radius ≤ 25 km) only for discovery, the scene action and the
-    Search button, through a 5-minute cache (`LIST_TTL`); `detail.php` only
-    for the typed ids, kept a day;
-  - the requests of a burst are spaced (`REQUEST_SPACING`) and serialized;
+    Search button, cached 5 minutes (`LIST_TTL`); `detail.php` only for the
+    typed ids, cached a day (`DETAIL_TTL`, an unknown id 5 minutes), so
+    repeated discoveries do not hit the server again;
   - after a refused key, send nothing more (Tankerkönig: "keine weiteren
     Requests") until the user saves the configuration (`resume`), never on a
-    mere reconnection.
+    mere reconnection;
+  - `test/app.test.js` and `test/client.test.js` check the spacing: two
+    background batches a minute apart, a scan right after a background read
+    2 seconds later.
 - **The key is a secret**: it travels in the query string only, `http.js`
   errors carry the URL path only, the client scrubs it from any message, and
   `test/app.test.js` checks it appears in no status, state, event or log.
@@ -80,6 +95,10 @@ test/helpers/         a fake Tankerkönig (fetch), fake timers
   nothing; a closed station keeps its last price (no event), reopening
   compares with it; the cheapest is compared only when the set of watched
   stations did not change.
+- **No double firing**: the `station` field of `price_below` and
+  `price_dropped` is required (a device select): a scene picks one station or
+  "Cheapest nearby" (any watched station, the lowest price), so one crossing
+  never matches both the station event and the cheapest one.
 - **Prices are € per litre** with 3 decimals, compared in tenths of a cent
   (`mills`). Gladys has no per-litre unit: `currency` / `decimal` / `euro`,
   "€/L" in the feature name.

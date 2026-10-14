@@ -27,5 +27,8 @@ the notes of the version's GitHub Release.
   (Tankerkönig / MTS-K, CC BY 4.0).
 - "Test the API key" and "Search stations" buttons.
 - Tankerkönig's terms enforced: prices read in batches of 10, at most every 5
-  minutes per station, off the round times; radius searches cached; no more
-  requests after a refused key until the configuration is saved again.
+  minutes per station, off the round times; the requests nobody asked for
+  (the refresh loop, startup) a minute apart, the ones the user asks for
+  (Discovery, buttons, scene action) 2 seconds apart; radius searches and
+  station details cached; no more requests after a refused key until the
+  configuration is saved again.

@@ -30,10 +30,10 @@ let api;
 afterEach(() => api?.restore());
 
 async function setup({ houses = [HOME], devices = [] } = {}) {
-  api = installTankerkoenig();
+  const clock = { now: NOW };
+  api = installTankerkoenig({ now: () => clock.now });
   const gladys = createFakeGladys({ selector: 'tankerkoenig', houses, devices });
   const timers = createFakeTimers();
-  const clock = { now: NOW };
   const sleeps = [];
   const logs = [];
   const log = (...args) => logs.push(args.join(' '));
@@ -42,8 +42,10 @@ async function setup({ houses = [HOME], devices = [] } = {}) {
     logger: { info: log, warn: log, error: log, debug: log },
     now: () => clock.now,
     timers,
+    // Waiting moves the clock, as it would in real life.
     sleep: async (ms) => {
       sleeps.push(ms);
+      clock.now += ms;
     },
     random: () => 0,
   });
@@ -138,7 +140,7 @@ test('discovery: the stations near the house, the typed ids, "Cheapest nearby"',
 
 test('created stations are read in batches of 10, every 10 minutes off the round times', async () => {
   const twelve = listed.slice(0, 12).map((s) => s.id);
-  const { app, gladys, timers, sleeps } = await setup({ devices: twelve.map((id) => created(id)) });
+  const { app, gladys, timers } = await setup({ devices: twelve.map((id) => created(id)) });
   for (const id of twelve.slice(10)) {
     api.setPrice(id, { e5: 1.799, e10: 1.739, diesel: 1.659 });
   }
@@ -148,7 +150,7 @@ test('created stations are read in batches of 10, every 10 minutes off the round
     batches.map((c) => c.params.ids.split(',').length),
     [10, 2],
   );
-  assert.ok(sleeps.length >= 2 && sleeps.every((ms) => ms === 2000), 'requests spaced');
+  assert.ok(batches[1].at - batches[0].at >= MINUTE, 'background batches a minute apart');
   assert.equal(gladys.fake.lastState(`${dev(ID.ARAL)}:e5`), 1.234);
   assert.equal(gladys.fake.lastState(`${dev(ID.ARAL)}:open`), 1);
   assert.equal(gladys.fake.lastState(`${dev(ID.TOTAL_CLOSED)}:open`), 0);
@@ -158,6 +160,29 @@ test('created stations are read in batches of 10, every 10 minutes off the round
   assert.equal(gladys.fake.sceneEvents.length, 0, 'nothing on the first reading');
   assert.equal(timers.intervals()[0].ms, 10 * MINUTE + 1000, '10 minutes and a few seconds');
   assert.ok(gladys.fake.widgetRefreshes.length > 0);
+});
+
+test('background requests leave a minute apart, user requests do not wait for them', async () => {
+  const twelve = listed.slice(0, 12).map((s) => s.id);
+  const { app, gladys, timers, clock } = await setup({ devices: twelve.map((id) => created(id)) });
+  const at = (pattern) => api.calls.filter((c) => pattern.test(c.url)).map((c) => c.at);
+  await app.start({ api_key: KEY });
+  // Startup (nobody asked): the two batches, then the Discovery list.
+  const [first, second] = at(/prices\.php/);
+  assert.equal(second - first, MINUTE);
+  assert.equal(at(/list\.php/)[0] - second, MINUTE);
+  // The loop, ten minutes later: a minute between its two batches.
+  clock.now += 10 * MINUTE;
+  await timers.runIntervals();
+  const tick = at(/prices\.php/).slice(-2);
+  assert.equal(tick[1] - tick[0], MINUTE);
+  // The user scans right after: 2 seconds, not a minute (the list cache expired).
+  await gladys.fake.scanRequest();
+  const scan = at(/list\.php/).at(-1);
+  assert.equal(scan - tick[1], 2000);
+  await gladys.fake.sceneAction(SCENE_ACTIONS.CHEAPEST, { fuel: 'e5', radius: 7 });
+  assert.equal(at(/list\.php/).at(-1) - scan, 2000);
+  assert.equal(at(/list\.php/).length, 3);
 });
 
 test('a station is never read twice within 5 minutes', async () => {
@@ -331,9 +356,10 @@ test('Tankerkönig down: the status says so and the loop keeps running', async (
   api.state.down = true;
   await app.start({ api_key: KEY });
   assert.equal(gladys.fake.connectionStatus.connected, false);
-  assert.match(
-    gladys.fake.connectionStatus.message.en,
-    /unreachable: HTTP 503 on \/json\/prices\.php/,
+  assert.ok(
+    gladys.fake.connectionStatuses.some((s) =>
+      /unreachable: HTTP 503 on \/json\/prices\.php/.test(s.message?.en),
+    ),
   );
   assert.equal(timers.intervals().length, 1);
   api.state.down = false;

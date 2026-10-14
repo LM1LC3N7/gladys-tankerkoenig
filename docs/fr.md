@@ -41,11 +41,27 @@ sous licence CC BY 4.0. Données : Tankerkönig / MTS-K, CC BY 4.0
 5. Placez le widget **Prix des carburants** sur un tableau de bord ; son
    réglage n'affiche qu'un carburant quand vous en choisissez un.
 
-Les prix des stations suivies sont lus toutes les 10 minutes (option
-**Intervalle de rafraîchissement**, au moins 5 minutes, comme Tankerkönig le
-demande aux systèmes domotiques), 10 stations par requête, quelques secondes
-aléatoires à côté des heures rondes. Une station ajoutée dans Découverte est
-lue une dizaine de secondes plus tard.
+### À quelle fréquence Tankerkönig est appelé
+
+Tankerkönig limite son API gratuite à une requête par minute (« die
+Abfragefrequenz auf einen requet/Minute beschränkt », sic) et demande d'éviter
+les requêtes régulières que l'utilisateur n'a pas demandées (« Regelmäßige,
+nicht explizit vom User initiierte Requests sind zu vermeiden »). Donc :
+
+- les prix des stations suivies sont lus toutes les 10 minutes (option
+  **Intervalle de rafraîchissement**, au moins 5 minutes), 10 stations par
+  requête, quelques secondes aléatoires à côté des heures rondes, et jamais
+  une station deux fois en moins de 5 minutes ;
+- ce que personne n'a demandé à l'instant (cette boucle, la lecture au
+  démarrage ou après une reconnexion, la liste de Découverte préparée au
+  démarrage) part au moins une minute après la requête précédente : avec 25
+  stations, les trois requêtes d'un rafraîchissement prennent deux minutes ;
+- ce que vous demandez (ouvrir Découverte, les boutons **Tester** et
+  **Chercher**, une scène qui lance l'action) n'attend que 2 secondes, et
+  réutilise les réponses déjà connues : une recherche autour de la maison
+  5 minutes, le détail d'une station une journée ;
+- une station ajoutée dans Découverte est lue au prochain créneau libre, dans
+  la minute environ.
 
 ## Prix, unités et stations fermées
 
@@ -62,15 +78,16 @@ lue une dizaine de secondes plus tard.
 
 ## Scènes
 
-- **Prix du carburant sous un seuil** : choisissez le carburant et le seuil ;
-  la scène s'exécute quand le prix passe dessous, une fois, pas à chaque
-  rafraîchissement. Laissez la station vide pour réagir à toutes les stations
-  suivies, ou choisissez **Cheapest nearby** pour réagir une seule fois au prix
-  le plus bas, quelle que soit la station (les deux à la fois si vous la
-  laissez vide avec cet appareil créé). Variables : la station, le carburant,
+- **Prix du carburant sous un seuil** : choisissez le carburant, le seuil et
+  la station ; la scène s'exécute quand le prix passe dessous, une fois, pas à
+  chaque rafraîchissement. La station est soit une station suivie, soit
+  **Cheapest nearby**, qui vaut pour toutes les stations suivies : la scène
+  s'exécute alors une fois, quand le prix le plus bas parmi elles passe
+  dessous, quelle que soit la station. Variables : la station, le carburant,
   le prix et le prix précédent.
 - **Baisse du prix du carburant** : le prix a baissé d'au moins 2, 3, 5 ou 10
-  centimes entre deux lectures.
+  centimes entre deux lectures, dans la station choisie ou, avec **Cheapest
+  nearby**, pour le prix le plus bas parmi les stations suivies.
 - **Station la moins chère changée** : une autre station suivie a désormais le
   prix ouvert le plus bas pour un carburant. Ajouter ou retirer une station ne
   compte pas.

@@ -6,9 +6,11 @@
 //
 // Tankerkönig's rules are enforced here: a station's prices are read at most
 // once every 5 minutes, in prices.php batches of 10, off the round times
-// (jitter); list.php only serves discovery, the scene action and the buttons,
-// through a 5-minute cache; a refused key stops every request until the
-// configuration is saved again.
+// (jitter); what nobody asked for right now (the loop, startup, reconnection)
+// leaves a minute after the previous request, what the user asked for
+// (Discovery, the buttons, a scene) 2 seconds after; list.php only serves
+// discovery, the scene action and the buttons, through a 5-minute cache; a
+// refused key stops every request until the configuration is saved again.
 // -----------------------------------------------------------------------------
 
 import { createLogger } from '@gladysassistant/integration-sdk';
@@ -24,7 +26,6 @@ import {
   MAX_SUGGESTIONS,
   MIN_PRICE_INTERVAL,
   STATE_HEARTBEAT,
-  TICK_SLACK,
   WIDGETS,
 } from './constants.js';
 import {
@@ -48,16 +49,11 @@ import {
   stationLabel,
   stationOf,
 } from './model.js';
-import { TankerkoenigClient, TankerkoenigError, isAuthError } from './tankerkoenig.js';
+import { TankerkoenigClient, TankerkoenigError, isAuthError, isCancelled } from './tankerkoenig.js';
 import { cheapestEvents, stationEvents } from './triggers.js';
 import { pricesWidget } from './widget.js';
 
 const defaultTimers = { setTimeout, clearTimeout, setInterval, clearInterval };
-
-const chunks = (list, size) =>
-  Array.from({ length: Math.ceil(list.length / size) }, (_, i) =>
-    list.slice(i * size, (i + 1) * size),
-  );
 
 export class TankerkoenigApp {
   constructor({
@@ -95,6 +91,7 @@ export class TankerkoenigApp {
     this.readTimer = undefined;
     this.lastStatus = undefined;
     this.refreshing = undefined;
+    this.refreshingGeneration = undefined;
     this.generation = 0;
   }
 
@@ -124,20 +121,15 @@ export class TankerkoenigApp {
     for (const invalid of this.config.invalidStations) {
       this.logger.warn(`Ignoring "${invalid}": not a Tankerkönig station id`);
     }
-    try {
-      await this.publishDevices();
-    } catch (err) {
-      await this.fail(err);
-    }
-    if (generation !== this.generation || this.halted) {
-      return;
-    }
+    const active = () => generation === this.generation && !this.halted;
+    // Nobody asked for these requests: they are background ones (a minute
+    // apart). The prices first, the Discovery list after.
     try {
       await this.refresh();
     } catch (err) {
       await this.fail(err);
     }
-    if (generation !== this.generation || this.halted) {
+    if (!active()) {
       return;
     }
     // Tankerkönig asks home automation not to call at round times: a few
@@ -147,6 +139,11 @@ export class TankerkoenigApp {
       () => this.refresh().catch((err) => this.fail(err)),
       this.config.pollInterval * 60_000 + jitter,
     );
+    try {
+      await this.publishDevices({ background: true, active });
+    } catch (err) {
+      await this.fail(err);
+    }
   }
 
   stop() {
@@ -170,6 +167,9 @@ export class TankerkoenigApp {
 
   /** A refused key stops everything (Tankerkönig: "send no more requests"). */
   async fail(err) {
+    if (isCancelled(err)) {
+      return;
+    }
     if (isAuthError(err)) {
       if (!this.halted) {
         this.logger.error(`Tankerkönig refused the API key (${err.message}): requests stopped`);
@@ -220,13 +220,13 @@ export class TankerkoenigApp {
   }
 
   /** The stations within `radius` km of a point (list.php, cached LIST_TTL). */
-  async nearby(point, radius) {
+  async nearby(point, radius, options) {
     const key = `${point.latitude.toFixed(3)},${point.longitude.toFixed(3)},${radius}`;
     const cached = this.lists.get(key);
     if (cached && this.now() - cached.at < LIST_TTL) {
       return cached.stations;
     }
-    const stations = (await this.api(() => this.client.list({ ...point, radius })))
+    const stations = (await this.api(() => this.client.list({ ...point, radius }, options)))
       .map(stationOf)
       .filter((s) => s.id);
     this.lists.set(key, { at: this.now(), stations });
@@ -237,7 +237,7 @@ export class TankerkoenigApp {
    * One station by id (detail.php) for the typed ids: kept DETAIL_TTL, and an
    * unknown id LIST_TTL, so scanning again does not ask again.
    */
-  async stationDetail(id) {
+  async stationDetail(id, options) {
     const cached = this.details.get(id);
     if (cached?.station && this.now() - cached.at < DETAIL_TTL) {
       return cached.station;
@@ -246,11 +246,11 @@ export class TankerkoenigApp {
       throw cached.error;
     }
     try {
-      const station = stationOf(await this.api(() => this.client.detail(id)));
+      const station = stationOf(await this.api(() => this.client.detail(id, options)));
       this.details.set(id, { at: this.now(), station });
       return station;
     } catch (err) {
-      if (err instanceof TankerkoenigError && !err.auth) {
+      if (err instanceof TankerkoenigError && !err.auth && !isCancelled(err)) {
         this.details.set(id, { at: this.now(), error: err });
       }
       throw err;
@@ -259,22 +259,26 @@ export class TankerkoenigApp {
 
   // --- Discovery -----------------------------------------------------------------
 
-  /** The devices to offer: the typed stations, those near the houses, "Cheapest nearby". */
-  async discoveredDevices() {
+  /**
+   * The devices to offer: the typed stations, those near the houses,
+   * "Cheapest nearby". `options` are the request options (background at
+   * startup, user for a scan).
+   */
+  async discoveredDevices(options = {}) {
     const watches = new Map();
     for (const entry of this.config.stations) {
       try {
-        const station = await this.stationDetail(entry.id);
+        const station = await this.stationDetail(entry.id, options);
         watches.set(station.id, { station, name: entry.name });
       } catch (err) {
-        if (isAuthError(err)) {
+        if (isAuthError(err) || isCancelled(err)) {
           throw err;
         }
         this.logger.warn(`Station ${entry.id} unavailable: ${err.message}`);
       }
     }
     for (const house of await this.locatedHouses()) {
-      const stations = await this.nearby(house, this.config.radius);
+      const stations = await this.nearby(house, this.config.radius, options);
       for (const station of stations.slice(0, MAX_SUGGESTIONS)) {
         if (!watches.has(station.id)) {
           watches.set(station.id, { station, distanceKm: station.distanceKm });
@@ -290,11 +294,24 @@ export class TankerkoenigApp {
     return devices;
   }
 
-  async publishDevices() {
+  /** A scan (the user) by default; `{ background, active }` at startup. */
+  async publishDevices(options = {}) {
     if (!this.config.apiKey || this.halted) {
       return;
     }
-    await this.gladys.publishDiscoveredDevices(await this.discoveredDevices());
+    let devices;
+    try {
+      devices = await this.discoveredDevices(options);
+    } catch (err) {
+      if (isCancelled(err)) {
+        return;
+      }
+      throw err;
+    }
+    if (options.active && !options.active()) {
+      return; // a newer configuration publishes its own list
+    }
+    await this.gladys.publishDiscoveredDevices(devices);
   }
 
   /** The devices the user created. */
@@ -314,40 +331,77 @@ export class TankerkoenigApp {
 
   // --- Reading -------------------------------------------------------------------
 
+  /**
+   * One refresh at a time: a call during a refresh of the same configuration
+   * joins it; after a restart it runs once the old one gave up.
+   */
   refresh() {
     if (this.halted || !this.config.apiKey) {
       return Promise.resolve();
     }
-    if (!this.refreshing) {
-      this.refreshing = this.doRefresh().finally(() => {
-        this.refreshing = undefined;
-      });
+    if (this.refreshing && this.refreshingGeneration === this.generation) {
+      return this.refreshing;
     }
-    return this.refreshing;
+    const generation = this.generation;
+    const run = (this.refreshing ?? Promise.resolve())
+      .catch(() => {})
+      .then(() => (generation === this.generation ? this.doRefresh() : undefined))
+      .finally(() => {
+        if (this.refreshing === run) {
+          this.refreshing = undefined;
+        }
+      });
+    this.refreshing = run;
+    this.refreshingGeneration = generation;
+    return run;
   }
 
-  /** Whether a station may be read now: never read, or read 5 minutes ago. */
-  due(stationId, now) {
+  /**
+   * Whether a station may be read at `at`: never read, or its last request
+   * left 5 minutes before. Readings are stamped with the time the request
+   * left, so the gate holds whatever the waits in between.
+   */
+  due(stationId, at) {
     const reading = this.readings.get(stationId);
-    return !reading || now - reading.at >= MIN_PRICE_INTERVAL - TICK_SLACK;
+    return !reading || at - reading.at >= MIN_PRICE_INTERVAL;
   }
 
+  /**
+   * One pass of the loop: background requests, a minute apart. Each batch is
+   * picked once its turn came, among the stations due at that moment, so a
+   * station keeps its place in the round and its 5 minutes.
+   */
   async doRefresh() {
     const generation = this.generation;
-    const now = this.now();
+    const active = () => generation === this.generation && !this.halted;
     const { stations, cheapest } = this.watchedDevices();
-    const due = stations.filter((d) => this.due(watchOfDevice(d).stationId, now));
+    const order = [...stations].sort((a, b) =>
+      watchOfDevice(a).stationId.localeCompare(watchOfDevice(b).stationId),
+    );
+    const done = new Set();
+    const pending = (at) =>
+      order.filter((d) => {
+        const id = watchOfDevice(d).stationId;
+        return !done.has(id) && this.due(id, at);
+      });
     let failure;
     let read = 0;
-    for (const batch of chunks(due, MAX_IDS_PER_CALL)) {
-      if (generation !== this.generation || this.halted) {
+    while (pending(this.now()).length > 0) {
+      const at = await this.client.slot({ background: true, active });
+      if (at === undefined) {
         return;
       }
+      const batch = pending(at).slice(0, MAX_IDS_PER_CALL);
+      if (batch.length === 0) {
+        break;
+      }
+      const ids = batch.map((d) => watchOfDevice(d).stationId);
+      ids.forEach((id) => done.add(id));
       try {
-        const ids = batch.map((d) => watchOfDevice(d).stationId);
-        const entries = pricesOf(await this.api(() => this.client.prices(ids)));
+        const answer = await this.api(() => this.client.prices(ids, { reserved: true }));
+        const entries = pricesOf(answer);
         for (const device of batch) {
-          await this.applyStation(device, entries.get(watchOfDevice(device).stationId), now);
+          await this.applyStation(device, entries.get(watchOfDevice(device).stationId), at);
           read += 1;
         }
       } catch (err) {
@@ -357,12 +411,15 @@ export class TankerkoenigApp {
         failure = err;
         this.logger.warn(`Reading ${batch.length} station(s) failed: ${err.message}`);
       }
+      if (!active()) {
+        return;
+      }
     }
     if (generation !== this.generation) {
       return;
     }
     if (read > 0) {
-      this.lastReadAt = new Date(now).toISOString();
+      this.lastReadAt = new Date(this.now()).toISOString();
       await this.updateCheapest(stations, cheapest);
       this.gladys.requestWidgetRefresh(WIDGETS.PRICES);
     }
@@ -383,13 +440,13 @@ export class TankerkoenigApp {
     }
   }
 
-  async applyStation(device, entry, now) {
+  async applyStation(device, entry, at) {
     const watch = watchOfDevice(device);
     if (!entry || entry.status === 'no stations') {
       this.logger.warn(`Tankerkönig does not know the station ${watch.stationId} (${device.name})`);
     }
     const previous = this.readings.get(watch.stationId);
-    const reading = nextReading(previous, entry, now);
+    const reading = nextReading(previous, entry, at);
     this.readings.set(watch.stationId, reading);
     await this.gladys.publishChangedStates(
       stationStates(device.external_id, reading, featureKeys(device)),
@@ -448,7 +505,8 @@ export class TankerkoenigApp {
   /**
    * A device was created (or updated: the SDK forgot its states). A known
    * station is re-published from memory; new stations are read together a
-   * few seconds later, so adding ten stations costs one prices.php call.
+   * few seconds later, in the next background slot, so adding ten stations
+   * costs one prices.php call.
    */
   async deviceCreated(device) {
     const parsed = parseExternalId(device.external_id);

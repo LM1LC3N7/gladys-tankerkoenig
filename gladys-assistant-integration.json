@@ -269,8 +269,8 @@
         "fr": "Prix du carburant sous un seuil"
       },
       "description": {
-        "en": "The price of a fuel just went below the threshold at a watched station. Pick \"Cheapest nearby\" as the station to react once for the lowest price, whichever station holds it.",
-        "fr": "Le prix d'un carburant vient de passer sous le seuil dans une station suivie. Choisissez « Cheapest nearby » comme station pour réagir une fois au prix le plus bas, quelle que soit la station."
+        "en": "The price of a fuel just went below the threshold at the chosen station. Pick \"Cheapest nearby\" to react to any watched station: once, when the lowest price goes below.",
+        "fr": "Le prix d'un carburant vient de passer sous le seuil dans la station choisie. Choisissez « Cheapest nearby » pour réagir à toutes les stations suivies : une fois, quand le prix le plus bas passe dessous."
       },
       "fields": [
         {
@@ -439,10 +439,10 @@
           "key": "station",
           "type": "select",
           "source": "devices",
-          "required": false,
+          "required": true,
           "label": {
-            "en": "Station (empty: every station)",
-            "fr": "Station (vide : toutes)"
+            "en": "Station, or \"Cheapest nearby\" for any watched station",
+            "fr": "Station, ou « Cheapest nearby » pour toutes les stations suivies"
           }
         }
       ],
@@ -488,8 +488,8 @@
         "fr": "Baisse du prix du carburant"
       },
       "description": {
-        "en": "The price of a fuel at a watched station dropped by at least the chosen cents between two readings.",
-        "fr": "Le prix d'un carburant dans une station suivie a baissé d'au moins les centimes choisis entre deux lectures."
+        "en": "The price of a fuel at the chosen station dropped by at least the chosen cents between two readings. Pick \"Cheapest nearby\" for the lowest price among the watched stations.",
+        "fr": "Le prix d'un carburant dans la station choisie a baissé d'au moins les centimes choisis entre deux lectures. Choisissez « Cheapest nearby » pour le prix le plus bas parmi les stations suivies."
       },
       "fields": [
         {
@@ -567,10 +567,10 @@
           "key": "station",
           "type": "select",
           "source": "devices",
-          "required": false,
+          "required": true,
           "label": {
-            "en": "Station (empty: every station)",
-            "fr": "Station (vide : toutes)"
+            "en": "Station, or \"Cheapest nearby\" for any watched station",
+            "fr": "Station, ou « Cheapest nearby » pour toutes les stations suivies"
           }
         }
       ],

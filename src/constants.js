@@ -16,12 +16,17 @@ export const HTTP_TIMEOUT = 15_000;
  * call, and never at round times.
  */
 export const MIN_PRICE_INTERVAL = 5 * 60_000;
-/** A timer tick may come a hair early: tolerated on the 5-minute gate. */
-export const TICK_SLACK = 5_000;
 export const MAX_IDS_PER_CALL = 10;
 /** Seconds added to the refresh interval (1 to 59, drawn at start). */
 export const MAX_JITTER_SECONDS = 59;
-/** Pause between two requests of the same burst (batches, discovery). */
+/**
+ * "die Abfragefrequenz auf einen requet/Minute beschränkt" and "Regelmäßige,
+ * nicht explizit vom User initiierte Requests sind zu vermeiden": a request
+ * nobody asked for right now (the refresh loop, startup, reconnection) leaves
+ * at least a minute after the previous request of any kind.
+ */
+export const BACKGROUND_SPACING = 60_000;
+/** A request the user asked for (Discovery, a button, a scene) only waits this long. */
 export const REQUEST_SPACING = 2_000;
 /** Stations created in Discovery are read together, once the user is done. */
 export const CREATED_DEBOUNCE = 10_000;

@@ -38,10 +38,26 @@ them under the CC BY 4.0 licence. Data: Tankerkönig / MTS-K, CC BY 4.0
 5. Put the **Fuel prices** widget on a dashboard; its setting shows a single
    fuel when you pick one.
 
-The prices of the watched stations are read every 10 minutes (option
-**Refresh interval**, 5 minutes at least, as Tankerkönig asks home automation
-systems), 10 stations per request, a few random seconds off the round times.
-A station added in Discovery is read about ten seconds later.
+### How often Tankerkönig is called
+
+Tankerkönig limits its free API to one request per minute ("die
+Abfragefrequenz auf einen requet/Minute beschränkt", sic) and asks to avoid
+the regular requests the user did not ask for ("Regelmäßige, nicht explizit
+vom User initiierte Requests sind zu vermeiden"). So:
+
+- the prices of the watched stations are read every 10 minutes (option
+  **Refresh interval**, 5 minutes at least), 10 stations per request, a few
+  random seconds off the round times, and never a station twice within 5
+  minutes;
+- what nobody asked for right now (that loop, the reading at startup or after
+  a reconnection, the Discovery list prepared at startup) leaves at least one
+  minute after the previous request: with 25 stations, the three requests of a
+  refresh take two minutes;
+- what you ask for (opening Discovery, the **Test** and **Search** buttons, a
+  scene running the action) only waits 2 seconds, and reuses the answers
+  already known: a radius search 5 minutes, a station's details a day;
+- a station added in Discovery is read with the next free slot, within about
+  a minute.
 
 ## Prices, units and closed stations
 
@@ -56,14 +72,15 @@ A station added in Discovery is read about ten seconds later.
 
 ## Scenes
 
-- **Fuel price below a threshold**: pick the fuel and the threshold; the scene
-  runs when the price goes below it, once, not at every refresh. Leave the
-  station empty to react to every watched station, or pick **Cheapest nearby**
-  to react once for the lowest price, whichever station holds it (both at
-  once if you leave it empty with that device created). Variables: the
-  station, the fuel, the price and the previous price.
+- **Fuel price below a threshold**: pick the fuel, the threshold and the
+  station; the scene runs when the price goes below it, once, not at every
+  refresh. The station is either one watched station or **Cheapest nearby**,
+  which stands for any watched station: the scene then runs once, when the
+  lowest price among them goes below, whichever station holds it. Variables:
+  the station, the fuel, the price and the previous price.
 - **Fuel price dropped**: the price fell by at least 2, 3, 5 or 10 cents
-  between two readings.
+  between two readings, at the chosen station or, with **Cheapest nearby**,
+  for the lowest price among the watched stations.
 - **Cheapest station changed**: another watched station now has the lowest
   open price for a fuel. Adding or removing a station does not count.
 - **Station opened or closed**: as reported to the MTS-K.

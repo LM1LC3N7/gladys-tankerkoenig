@@ -20,11 +20,14 @@ export function fixture(name) {
 export const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
-/** Install a fake fetch; `routes` is a list of [RegExp, handler({ url, params })]. */
-export function installFetch(routes) {
+/**
+ * Install a fake fetch; `routes` is a list of [RegExp, handler({ url, params })].
+ * Every call is recorded with `at`, the time `now()` gives when it left.
+ */
+export function installFetch(routes, { now = Date.now } = {}) {
   const calls = [];
   const previous = setFetch(async (url, init = {}) => {
-    const call = { url, params: Object.fromEntries(new URL(url).searchParams), init };
+    const call = { url, params: Object.fromEntries(new URL(url).searchParams), init, at: now() };
     calls.push(call);
     const route = routes.find(([pattern]) => pattern.test(url));
     if (!route) {
@@ -54,7 +57,7 @@ export const ID = {
  * fixture, editable); list.php honours the radius; an unknown key gets the
  * recorded refusal. Every call is recorded in `calls`.
  */
-export function installTankerkoenig() {
+export function installTankerkoenig({ now } = {}) {
   const state = {
     key: KEY,
     prices: fixture('prices.json').prices,
@@ -68,34 +71,37 @@ export function installTankerkoenig() {
     }
     return params.apikey === state.key ? answer() : json(fixture('error-key.json'));
   };
-  const fake = installFetch([
+  const fake = installFetch(
     [
-      /\/list\.php\?/,
-      ({ params }) =>
-        guard(params, () =>
-          json({
-            ...state.list,
-            stations: state.list.stations.filter((s) => s.dist <= Number(params.rad)),
+      [
+        /\/list\.php\?/,
+        ({ params }) =>
+          guard(params, () =>
+            json({
+              ...state.list,
+              stations: state.list.stations.filter((s) => s.dist <= Number(params.rad)),
+            }),
+          ),
+      ],
+      [
+        /\/prices\.php\?/,
+        ({ params }) =>
+          guard(params, () => {
+            const prices = {};
+            for (const id of params.ids.split(',')) {
+              prices[id] = state.prices[id] ?? { status: 'no stations' };
+            }
+            return json({ ok: true, license: 'CC BY 4.0', data: 'MTS-K', prices });
           }),
-        ),
+      ],
+      [
+        /\/detail\.php\?/,
+        ({ params }) =>
+          guard(params, () => json(state.details[params.id] ?? fixture('error-station.json'))),
+      ],
     ],
-    [
-      /\/prices\.php\?/,
-      ({ params }) =>
-        guard(params, () => {
-          const prices = {};
-          for (const id of params.ids.split(',')) {
-            prices[id] = state.prices[id] ?? { status: 'no stations' };
-          }
-          return json({ ok: true, license: 'CC BY 4.0', data: 'MTS-K', prices });
-        }),
-    ],
-    [
-      /\/detail\.php\?/,
-      ({ params }) =>
-        guard(params, () => json(state.details[params.id] ?? fixture('error-station.json'))),
-    ],
-  ]);
+    { now },
+  );
   return {
     ...fake,
     state,

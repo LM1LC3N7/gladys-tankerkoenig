@@ -27,6 +27,11 @@ Gladys ⇄ SDK ⇄ src/app.js (TankerkoenigApp)
   prices.php, 10 ids per call, every `poll_interval` minutes (10 by default, 5
   at least) plus a random 1 to 59 seconds, never a station twice within 5
   minutes. States go through `publishChangedStates`.
+- **Pacing**: Tankerkönig allows one request per minute and asks to avoid
+  requests the user did not ask for. Background requests (the loop, startup)
+  leave a minute after any previous request; user requests (Discovery,
+  buttons, the scene action) 2 seconds after, from 5-minute (radius search)
+  and 1-day (station detail) caches.
 - **Triggers** come from two consecutive readings of the same station: every
   threshold crossed fires once, the first reading fires nothing; the cheapest
   station is compared only when the set of watched stations did not change.
