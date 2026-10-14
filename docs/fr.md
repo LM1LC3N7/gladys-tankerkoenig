@@ -95,9 +95,12 @@ nicht explizit vom User initiierte Requests sind zu vermeiden »). Donc :
 
 L'action **station la moins chère à proximité** lance une recherche autour de
 la maison (le rayon de la configuration, ou celui que vous donnez) et renvoie
-`{{name}}`, `{{brand}}`, `{{address}}`, `{{price}}`, `{{distance}}` et
-`{{found}}` pour un message ou une condition. Les recherches sont gardées
-5 minutes : une scène qui s'exécute souvent ne surcharge pas Tankerkönig.
+`name`, `brand`, `address`, `price`, `distance` et `found` pour un message
+ou une condition. Les actions suivantes de la scène les trouvent dans leur
+liste de variables (écrites `{{<étape>.<action>.<clé>}}`, par exemple
+`{{0.0.price}}` quand cette action est la première de la scène). Les
+recherches sont gardées 5 minutes : une scène qui s'exécute souvent ne
+surcharge pas Tankerkönig.
 
 ## Dépannage
 

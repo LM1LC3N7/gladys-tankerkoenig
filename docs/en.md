@@ -86,9 +86,11 @@ vom User initiierte Requests sind zu vermeiden"). So:
 - **Station opened or closed**: as reported to the MTS-K.
 
 The action **cheapest station nearby** runs a radius search around the house
-(the configured radius, or the one you give) and returns `{{name}}`,
-`{{brand}}`, `{{address}}`, `{{price}}`, `{{distance}}` and `{{found}}` for a
-message or a condition. Searches are kept 5 minutes, so a scene that runs often
+(the configured radius, or the one you give) and returns `name`, `brand`,
+`address`, `price`, `distance` and `found` for a message or a condition. The
+following actions of the scene find them in their variable list (written
+`{{<step>.<action>.<key>}}`, for instance `{{0.0.price}}` when this action is
+the first of the scene). Searches are kept 5 minutes, so a scene that runs often
 does not hammer Tankerkönig.
 
 ## Troubleshooting
