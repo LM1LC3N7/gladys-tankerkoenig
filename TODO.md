@@ -2,7 +2,7 @@
 
 ## Before announcing
 
-- [ ] Test on a real Gladys 5.1+ with a real personal API key and a house in
+- [ ] Test on a real Gladys 5.3+ with a real personal API key and a house in
       Germany: discovery around the house, a typed id, the widget, a "price
       below" scene over a day, the "cheapest station" action.
 - [ ] Watch a day of logs: the number of prices.php calls matches the
